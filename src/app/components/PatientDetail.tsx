@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { ArrowLeft, Upload, Activity, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
-import { patients, conditions, testResults, conditionTests } from "./patientData";
+import { conditions, testResults, conditionTests } from "./patientData";
 import type { TestResult } from "./patientData";
+import { usePatients } from "./PatientContext";
 
 const statusConfig: Record<TestResult["status"], { icon: typeof CheckCircle2; color: string; bg: string }> = {
   Normal: { icon: CheckCircle2, color: "#16a34a", bg: "#f0fdf4" },
@@ -13,6 +14,7 @@ const statusConfig: Record<TestResult["status"], { icon: typeof CheckCircle2; co
 export function PatientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { patients } = usePatients();
   const patient = patients.find((p) => p.id === id);
   const [selectedCondition, setSelectedCondition] = useState(patient?.condition || conditions[0]);
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);

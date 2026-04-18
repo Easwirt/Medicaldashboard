@@ -1,17 +1,50 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Search, Users } from "lucide-react";
-import { patients } from "./patientData";
+import { Search, Users, Plus, X } from "lucide-react";
+import { conditions } from "./patientData";
+import { usePatients } from "./PatientContext";
+
+const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 export function PatientDirectory() {
   const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
+  const { patients, addPatient } = usePatients();
+
+  const [form, setForm] = useState({
+    name: "",
+    age: "",
+    gender: "Male",
+    condition: conditions[0],
+    phone: "",
+    email: "",
+    bloodType: "A+",
+  });
 
   const filtered = patients.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.id.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleSubmit = () => {
+    if (!form.name || !form.age) return;
+    const id = `PT-${1001 + patients.length}`;
+    addPatient({
+      id,
+      name: form.name,
+      age: Number(form.age),
+      gender: form.gender,
+      lastVisit: new Date().toISOString().split("T")[0],
+      condition: form.condition,
+      phone: form.phone || "(555) 000-0000",
+      email: form.email || "n/a",
+      bloodType: form.bloodType,
+    });
+    setForm({ name: "", age: "", gender: "Male", condition: conditions[0], phone: "", email: "", bloodType: "A+" });
+    setShowModal(false);
+  };
 
   return (
     <div>
@@ -22,16 +55,25 @@ export function PatientDirectory() {
             {patients.length} patients registered
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-white rounded-lg border border-[#dde3ea] px-3 py-2 w-80">
-          <Search size={18} className="text-[#94a3b8]" />
-          <input
-            type="text"
-            placeholder="Search by name or ID..."
-            className="bg-transparent outline-none flex-1 text-[#1e293b] placeholder-[#94a3b8]"
-            style={{ fontSize: "0.875rem" }}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white rounded-lg border border-[#dde3ea] px-3 py-2 w-80">
+            <Search size={18} className="text-[#94a3b8]" />
+            <input
+              type="text"
+              placeholder="Search by name or ID..."
+              className="bg-transparent outline-none flex-1 text-[#1e293b] placeholder-[#94a3b8]"
+              style={{ fontSize: "0.875rem" }}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white px-4 py-2 rounded-lg transition-colors"
+            style={{ fontSize: "0.875rem", fontWeight: 500 }}
+          >
+            <Plus size={18} /> Add Patient
+          </button>
         </div>
       </div>
 
@@ -85,6 +127,127 @@ export function PatientDirectory() {
           </tbody>
         </table>
       </div>
+
+      {/* Add Patient Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-[#1e293b]">Add New Patient</h2>
+              <button onClick={() => setShowModal(false)} className="text-[#94a3b8] hover:text-[#1e293b] transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Name */}
+              <div className="col-span-2">
+                <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Full Name *</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full border border-[#dde3ea] rounded-lg px-3 py-2 text-[#1e293b] outline-none focus:border-[#2563eb] transition-colors"
+                  style={{ fontSize: "0.875rem" }}
+                  placeholder="e.g. John Doe"
+                />
+              </div>
+              {/* Age */}
+              <div>
+                <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Age *</label>
+                <input
+                  type="number"
+                  value={form.age}
+                  onChange={(e) => setForm({ ...form, age: e.target.value })}
+                  className="w-full border border-[#dde3ea] rounded-lg px-3 py-2 text-[#1e293b] outline-none focus:border-[#2563eb] transition-colors"
+                  style={{ fontSize: "0.875rem" }}
+                  placeholder="e.g. 45"
+                />
+              </div>
+              {/* Gender */}
+              <div>
+                <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Gender</label>
+                <select
+                  value={form.gender}
+                  onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                  className="w-full border border-[#dde3ea] rounded-lg px-3 py-2 text-[#1e293b] outline-none focus:border-[#2563eb] transition-colors bg-white"
+                  style={{ fontSize: "0.875rem" }}
+                >
+                  <option>Male</option>
+                  <option>Female</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              {/* Blood Type */}
+              <div>
+                <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Blood Type</label>
+                <select
+                  value={form.bloodType}
+                  onChange={(e) => setForm({ ...form, bloodType: e.target.value })}
+                  className="w-full border border-[#dde3ea] rounded-lg px-3 py-2 text-[#1e293b] outline-none focus:border-[#2563eb] transition-colors bg-white"
+                  style={{ fontSize: "0.875rem" }}
+                >
+                  {bloodTypes.map((bt) => <option key={bt}>{bt}</option>)}
+                </select>
+              </div>
+              {/* Condition */}
+              <div>
+                <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Condition</label>
+                <select
+                  value={form.condition}
+                  onChange={(e) => setForm({ ...form, condition: e.target.value })}
+                  className="w-full border border-[#dde3ea] rounded-lg px-3 py-2 text-[#1e293b] outline-none focus:border-[#2563eb] transition-colors bg-white"
+                  style={{ fontSize: "0.875rem" }}
+                >
+                  {conditions.map((c) => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              {/* Phone */}
+              <div>
+                <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Phone</label>
+                <input
+                  type="text"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  className="w-full border border-[#dde3ea] rounded-lg px-3 py-2 text-[#1e293b] outline-none focus:border-[#2563eb] transition-colors"
+                  style={{ fontSize: "0.875rem" }}
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+              {/* Email */}
+              <div>
+                <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Email</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="w-full border border-[#dde3ea] rounded-lg px-3 py-2 text-[#1e293b] outline-none focus:border-[#2563eb] transition-colors"
+                  style={{ fontSize: "0.875rem" }}
+                  placeholder="john@email.com"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 rounded-lg border border-[#dde3ea] text-[#64748b] hover:bg-[#f8fafc] transition-colors"
+                style={{ fontSize: "0.875rem" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={!form.name || !form.age}
+                className={`px-5 py-2 rounded-lg text-white transition-colors ${
+                  !form.name || !form.age ? "bg-[#94a3b8] cursor-not-allowed" : "bg-[#2563eb] hover:bg-[#1d4ed8]"
+                }`}
+                style={{ fontSize: "0.875rem", fontWeight: 500 }}
+              >
+                Add Patient
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
