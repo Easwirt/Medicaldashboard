@@ -19,7 +19,8 @@ export interface TestResult {
   id: number;
   name: string;
   date: string;
-  status: "Normal" | "Alert" | "Pending";
+  status: "OK" | "Possible Risk" | "High Probability" | "Disease Detected" | "Pending";
+  confirmed?: boolean;
   value?: string;
   photo_path?: string;
 }
@@ -36,9 +37,11 @@ interface PatientContextType {
   refreshPatients: () => Promise<void>;
   addPatient: (patient: Omit<Patient, "id">) => Promise<Patient>;
   addTestResult: (patientId: number, testResult: Omit<TestResult, "id">, shouldRefresh?: boolean) => Promise<TestResult>;
+  deleteTestResult: (testResultId: number) => Promise<void>;
+  setTestResultConfirmation: (testResultId: number, confirmed: boolean) => Promise<void>;
   uploadFile: (file: File) => Promise<string>;
   uploadPhoto: (patientId: number, file: File) => Promise<void>;
-  evaluatePhoto: (file: File) => Promise<any>;
+  evaluatePhoto: (file: File, models?: string[]) => Promise<any>;
 }
 
 const API_BASE = "http://localhost:8000";
@@ -53,12 +56,12 @@ export function PatientProvider({ children }: { children: ReactNode }) {
   const refreshPatients = async () => {
     try {
       const res = await fetch(`${API_BASE}/patients/`);
-      if (res.ok) {
-        const data = await res.json();
-        setPatients(data);
-      }
+      if (!res.ok) throw new Error(`Failed to fetch patients: ${res.status}`);
+      const data = await res.json();
+      setPatients(data);
     } catch (error) {
       console.error("Failed to fetch patients:", error);
+      throw error;
     }
   };
 
@@ -77,8 +80,13 @@ export function PatientProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
-      await Promise.all([refreshPatients(), fetchConditions()]);
-      setIsLoading(false);
+      try {
+        await Promise.all([refreshPatients(), fetchConditions()]);
+      } catch (error) {
+        console.error("Initial data loading failed:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
     init();
   }, []);
@@ -107,6 +115,32 @@ export function PatientProvider({ children }: { children: ReactNode }) {
     return newResult;
   };
 
+  const deleteTestResult = async (testResultId: number) => {
+    const res = await fetch(`${API_BASE}/test_results/${testResultId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Failed to delete test result");
+    await refreshPatients();
+  };
+
+  const setTestResultConfirmation = async (testResultId: number, confirmed: boolean) => {
+    const res = await fetch(`${API_BASE}/test_results/${testResultId}/confirmation`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmed }),
+    });
+    if (!res.ok) throw new Error("Failed to update test result confirmation");
+    const updatedResult: TestResult = await res.json();
+    setPatients((prevPatients) =>
+      prevPatients.map((patient) => ({
+        ...patient,
+        test_results: (patient.test_results || []).map((result) =>
+          result.id === testResultId ? { ...result, confirmed: updatedResult.confirmed } : result
+        ),
+      }))
+    );
+  };
+
   const uploadFile = async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -130,9 +164,12 @@ export function PatientProvider({ children }: { children: ReactNode }) {
     await refreshPatients();
   };
 
-  const evaluatePhoto = async (file: File) => {
+  const evaluatePhoto = async (file: File, models: string[] = []) => {
     const formData = new FormData();
     formData.append("photo", file);
+    for (const model of models) {
+      formData.append("models", model);
+    }
     const res = await fetch(`${API_BASE}/evaluate_photo/`, {
       method: "POST",
       body: formData,
@@ -149,6 +186,8 @@ export function PatientProvider({ children }: { children: ReactNode }) {
       refreshPatients, 
       addPatient, 
       addTestResult,
+      deleteTestResult,
+      setTestResultConfirmation,
       uploadFile,
       uploadPhoto, 
       evaluatePhoto 

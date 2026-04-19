@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from .database import Base
 from datetime import datetime
@@ -34,6 +34,7 @@ class TestResult(Base):
     name = Column(String)
     date = Column(String)
     status = Column(String) # Normal, Alert, Pending
+    confirmed = Column(Boolean, nullable=False, default=False, server_default="false")
     value = Column(String, nullable=True)
     photo_path = Column(String, nullable=True)
     

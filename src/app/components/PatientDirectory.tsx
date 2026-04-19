@@ -6,26 +6,27 @@ import { usePatients } from "./PatientContext";
 
 const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
+const conditionOptionFromValue = (condition?: string): string => {
+  const normalized = (condition || "").trim().toLowerCase();
+  if (!normalized) return "Healthy";
+  if (["healthy", "zdravy", "zdravi", "yes", "true"].includes(normalized)) return "Healthy";
+  return "Disease";
+};
+
 export function PatientDirectory() {
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
-  const { patients, conditions, addPatient, isLoading } = usePatients();
+  const { patients, addPatient, isLoading } = usePatients();
 
   const [form, setForm] = useState({
     name: "",
     age: "",
     gender: "Male",
-    condition: "",
     phone: "",
     email: "",
     bloodType: "A+",
   });
-
-  // Set initial condition once conditions are loaded
-  if (!form.condition && conditions.length > 0) {
-    setForm(prev => ({ ...prev, condition: conditions[0] }));
-  }
 
   const filtered = patients.filter(
     (p) =>
@@ -43,12 +44,12 @@ export function PatientDirectory() {
         age: Number(form.age),
         gender: form.gender,
         last_visit: new Date().toISOString().split("T")[0],
-        condition: form.condition,
+        condition: "",
         phone: form.phone || "(555) 000-0000",
         email: form.email || "n/a",
         blood_type: form.bloodType,
       });
-      setForm({ name: "", age: "", gender: "Male", condition: conditions[0] || "", phone: "", email: "", bloodType: "A+" });
+      setForm({ name: "", age: "", gender: "Male", phone: "", email: "", bloodType: "A+" });
       setShowModal(false);
       toast.success("Patient added successfully!");
     } catch (error) {
@@ -65,7 +66,7 @@ export function PatientDirectory() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-[#1e293b]">Patient Directory</h1>
+          <h1 className="text-[#1e293b]">Patient List</h1>
           <p className="text-[#64748b] mt-1" style={{ fontSize: "0.875rem" }}>
             {patients.length} patients registered
           </p>
@@ -96,7 +97,7 @@ export function PatientDirectory() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-[#eef1f5]">
-              {["Patient Name", "ID", "Age", "Gender", "Condition", "Last Visit"].map((h) => (
+              {["Patient Name", "ID", "Age", "Gender", "Conditions", "Last Visit"].map((h) => (
                 <th
                   key={h}
                   className="text-left px-5 py-3 text-[#64748b]"
@@ -124,9 +125,9 @@ export function PatientDirectory() {
                 <td className="px-5 py-4 text-[#64748b]" style={{ fontSize: "0.875rem" }}>{p.age}</td>
                 <td className="px-5 py-4 text-[#64748b]" style={{ fontSize: "0.875rem" }}>{p.gender}</td>
                 <td className="px-5 py-4">
-                  <span className="px-2.5 py-1 rounded-full bg-[#f0f4ff] text-[#2563eb]" style={{ fontSize: "0.75rem", fontWeight: 500 }}>
-                    {p.condition}
-                  </span>
+                    <span className="px-2.5 py-1 rounded-full bg-[#f0f4ff] text-[#2563eb]" style={{ fontSize: "0.75rem", fontWeight: 500 }}>
+                      {conditionOptionFromValue(p.condition)}
+                    </span>
                 </td>
                 <td className="px-5 py-4 text-[#64748b]" style={{ fontSize: "0.875rem" }}>{p.last_visit}</td>
               </tr>
@@ -198,17 +199,6 @@ export function PatientDirectory() {
                   style={{ fontSize: "0.875rem" }}
                 >
                   {bloodTypes.map((bt) => <option key={bt}>{bt}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Condition</label>
-                <select
-                  value={form.condition}
-                  onChange={(e) => setForm({ ...form, condition: e.target.value })}
-                  className="w-full border border-[#dde3ea] rounded-lg px-3 py-2 text-[#1e293b] outline-none focus:border-[#2563eb] transition-colors bg-white"
-                  style={{ fontSize: "0.875rem" }}
-                >
-                  {conditions.map((c) => <option key={c}>{c}</option>)}
                 </select>
               </div>
               <div>

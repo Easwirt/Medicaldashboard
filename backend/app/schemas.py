@@ -5,6 +5,7 @@ class TestResultBase(BaseModel):
     name: str
     date: str
     status: str
+    confirmed: bool = False
     value: Optional[str] = None
     photo_path: Optional[str] = None
 
@@ -17,6 +18,10 @@ class TestResult(TestResultBase):
 
     class Config:
         from_attributes = True
+
+
+class TestResultConfirmationUpdate(BaseModel):
+    confirmed: bool
 
 class PatientBase(BaseModel):
     patient_id: str

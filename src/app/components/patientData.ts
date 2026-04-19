@@ -19,4 +19,4 @@ export interface TestResult {
 }
 
 // Static patient data for initial display if needed (though now using API)
-export const patients: Patient[] = [
+export const patients: Patient[] = [];

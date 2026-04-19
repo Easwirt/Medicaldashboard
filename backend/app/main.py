@@ -3,15 +3,22 @@ import shutil
 import uuid
 import asyncio
 from typing import List
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import text
 
 from . import models, schemas, database
 from .database import engine
+from .pipeline import build_evaluation_response, preprocess_single_image_for_debug
 
 models.Base.metadata.create_all(bind=engine)
+
+with engine.begin() as connection:
+    connection.execute(
+        text("ALTER TABLE test_results ADD COLUMN IF NOT EXISTS confirmed BOOLEAN NOT NULL DEFAULT FALSE")
+    )
 
 app = FastAPI(title="Medical Dashboard API")
 
@@ -70,12 +77,41 @@ def create_test_result_for_patient(
     db.refresh(db_test_result)
     return db_test_result
 
+@app.delete("/test_results/{test_result_id}")
+def delete_test_result(test_result_id: int, db: Session = Depends(get_db)):
+    db_test_result = db.query(models.TestResult).filter(models.TestResult.id == test_result_id).first()
+    if not db_test_result:
+        raise HTTPException(status_code=404, detail="Test result not found")
+
+    db.delete(db_test_result)
+    db.commit()
+    return {"status": "success", "message": "Test result deleted"}
+
+
+@app.patch("/test_results/{test_result_id}/confirmation", response_model=schemas.TestResult)
+def set_test_result_confirmation(
+    test_result_id: int,
+    payload: schemas.TestResultConfirmationUpdate,
+    db: Session = Depends(get_db),
+):
+    db_test_result = db.query(models.TestResult).filter(models.TestResult.id == test_result_id).first()
+    if not db_test_result:
+        raise HTTPException(status_code=404, detail="Test result not found")
+
+    db_test_result.confirmed = payload.confirmed
+    db.commit()
+    db.refresh(db_test_result)
+    return db_test_result
+
 @app.post("/conditions/", response_model=schemas.Condition)
 def create_condition(condition: schemas.ConditionCreate, db: Session = Depends(get_db)):
+    existing_condition = db.query(models.Condition).filter(models.Condition.name == condition.name).first()
+    if existing_condition:
+        raise HTTPException(status_code=400, detail="Condition already exists")
+
     db_condition = models.Condition(name=condition.name)
     db.add(db_condition)
     db.commit()
-    db_condition_data = schemas.Condition.from_orm(db_condition)
     db.refresh(db_condition)
     return db_condition
 
@@ -115,23 +151,20 @@ async def upload_file(file: UploadFile = File(...)):
     return {"filename": filename}
 
 @app.post("/evaluate_photo/")
-async def evaluate_photo(photo: UploadFile = File(...)):
-    # Mocking a call to a model API that evaluates a photo for diseases
-    await asyncio.sleep(1)  # Simulate network delay
-    
-    # Simple mock logic based on the file name or just a random response
-    mock_results = {
-        "status": "success",
-        "evaluations": [
-            {"disease": "Diabetes", "probability": 0.05, "risk_level": "Low"},
-            {"disease": "Glaucoma", "probability": 0.12, "risk_level": "Low"},
-            {"disease": "Sclerosis", "probability": 0.85, "risk_level": "High"},
-            {"disease": "Dry eye", "probability": 0.45, "risk_level": "Moderate"}
-        ],
-        "message": "Photo evaluated successfully. Mock results generated."
-    }
-    
-    return mock_results
+async def evaluate_photo(photo: UploadFile = File(...), models: List[str] = Form(default=[])):
+    # Mocking a call to a model API that evaluates a photo for diseases.
+    await asyncio.sleep(0.4)
+    raw_photo = await photo.read()
+    response = build_evaluation_response(raw_photo, models)
+    processed_filename = preprocess_single_image_for_debug(raw_photo, UPLOAD_DIR)
+    if not processed_filename:
+        file_extension = os.path.splitext(photo.filename or "")[1] or ".png"
+        processed_filename = f"debug_raw_{uuid.uuid4()}{file_extension}"
+        with open(os.path.join(UPLOAD_DIR, processed_filename), "wb") as buffer:
+            buffer.write(raw_photo)
+
+    response["processed_filename"] = processed_filename
+    return response
 
 @app.get("/health")
 async def health_check(db: Session = Depends(get_db)):
