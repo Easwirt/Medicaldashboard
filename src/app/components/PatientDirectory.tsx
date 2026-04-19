@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Search, Users, Plus, X } from "lucide-react";
-import { conditions } from "./patientData";
+import { toast } from "sonner";
 import { usePatients } from "./PatientContext";
 
 const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -10,41 +10,56 @@ export function PatientDirectory() {
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
-  const { patients, addPatient } = usePatients();
+  const { patients, conditions, addPatient, isLoading } = usePatients();
 
   const [form, setForm] = useState({
     name: "",
     age: "",
     gender: "Male",
-    condition: conditions[0],
+    condition: "",
     phone: "",
     email: "",
     bloodType: "A+",
   });
 
+  // Set initial condition once conditions are loaded
+  if (!form.condition && conditions.length > 0) {
+    setForm(prev => ({ ...prev, condition: conditions[0] }));
+  }
+
   const filtered = patients.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.id.toLowerCase().includes(search.toLowerCase())
+      p.patient_id.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name || !form.age) return;
-    const id = `PT-${1001 + patients.length}`;
-    addPatient({
-      id,
-      name: form.name,
-      age: Number(form.age),
-      gender: form.gender,
-      lastVisit: new Date().toISOString().split("T")[0],
-      condition: form.condition,
-      phone: form.phone || "(555) 000-0000",
-      email: form.email || "n/a",
-      bloodType: form.bloodType,
-    });
-    setForm({ name: "", age: "", gender: "Male", condition: conditions[0], phone: "", email: "", bloodType: "A+" });
-    setShowModal(false);
+    try {
+      const patient_id = `PT-${1001 + patients.length}`;
+      await addPatient({
+        patient_id,
+        name: form.name,
+        age: Number(form.age),
+        gender: form.gender,
+        last_visit: new Date().toISOString().split("T")[0],
+        condition: form.condition,
+        phone: form.phone || "(555) 000-0000",
+        email: form.email || "n/a",
+        blood_type: form.bloodType,
+      });
+      setForm({ name: "", age: "", gender: "Male", condition: conditions[0] || "", phone: "", email: "", bloodType: "A+" });
+      setShowModal(false);
+      toast.success("Patient added successfully!");
+    } catch (error) {
+      console.error("Error adding patient:", error);
+      toast.error("Failed to add patient. Please try again.");
+    }
   };
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-64 text-[#64748b]">Loading patients...</div>;
+  }
 
   return (
     <div>
@@ -95,9 +110,9 @@ export function PatientDirectory() {
           <tbody>
             {filtered.map((p) => (
               <tr
-                key={p.id}
+                key={p.patient_id}
                 className="border-b border-[#f1f5f9] hover:bg-[#f8fafc] cursor-pointer transition-colors"
-                onClick={() => navigate(`/patient/${p.id}`)}
+                onClick={() => navigate(`/patient/${p.patient_id}`)}
               >
                 <td className="px-5 py-4 flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-[#e0ecff] text-[#2563eb] flex items-center justify-center" style={{ fontSize: "0.8rem", fontWeight: 600 }}>
@@ -105,7 +120,7 @@ export function PatientDirectory() {
                   </div>
                   <span className="text-[#1e293b]" style={{ fontWeight: 500 }}>{p.name}</span>
                 </td>
-                <td className="px-5 py-4 text-[#64748b]" style={{ fontSize: "0.875rem" }}>{p.id}</td>
+                <td className="px-5 py-4 text-[#64748b]" style={{ fontSize: "0.875rem" }}>{p.patient_id}</td>
                 <td className="px-5 py-4 text-[#64748b]" style={{ fontSize: "0.875rem" }}>{p.age}</td>
                 <td className="px-5 py-4 text-[#64748b]" style={{ fontSize: "0.875rem" }}>{p.gender}</td>
                 <td className="px-5 py-4">
@@ -113,7 +128,7 @@ export function PatientDirectory() {
                     {p.condition}
                   </span>
                 </td>
-                <td className="px-5 py-4 text-[#64748b]" style={{ fontSize: "0.875rem" }}>{p.lastVisit}</td>
+                <td className="px-5 py-4 text-[#64748b]" style={{ fontSize: "0.875rem" }}>{p.last_visit}</td>
               </tr>
             ))}
             {filtered.length === 0 && (
@@ -139,7 +154,6 @@ export function PatientDirectory() {
               </button>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              {/* Name */}
               <div className="col-span-2">
                 <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Full Name *</label>
                 <input
@@ -151,7 +165,6 @@ export function PatientDirectory() {
                   placeholder="e.g. John Doe"
                 />
               </div>
-              {/* Age */}
               <div>
                 <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Age *</label>
                 <input
@@ -163,7 +176,6 @@ export function PatientDirectory() {
                   placeholder="e.g. 45"
                 />
               </div>
-              {/* Gender */}
               <div>
                 <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Gender</label>
                 <select
@@ -177,7 +189,6 @@ export function PatientDirectory() {
                   <option>Other</option>
                 </select>
               </div>
-              {/* Blood Type */}
               <div>
                 <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Blood Type</label>
                 <select
@@ -189,7 +200,6 @@ export function PatientDirectory() {
                   {bloodTypes.map((bt) => <option key={bt}>{bt}</option>)}
                 </select>
               </div>
-              {/* Condition */}
               <div>
                 <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Condition</label>
                 <select
@@ -201,7 +211,6 @@ export function PatientDirectory() {
                   {conditions.map((c) => <option key={c}>{c}</option>)}
                 </select>
               </div>
-              {/* Phone */}
               <div>
                 <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Phone</label>
                 <input
@@ -213,7 +222,6 @@ export function PatientDirectory() {
                   placeholder="(555) 123-4567"
                 />
               </div>
-              {/* Email */}
               <div>
                 <label className="block text-[#64748b] mb-1" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Email</label>
                 <input

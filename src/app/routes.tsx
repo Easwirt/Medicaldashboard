@@ -25,9 +25,11 @@ const Layout = () => {
 
 // Using a simple layout approach
 import { Outlet } from "react-router";
+import { Toaster } from "sonner";
 
 const Root = () => (
   <PatientProvider>
+  <Toaster position="top-right" richColors />
   <div className="min-h-screen bg-[#f0f4f8]">
     <header className="bg-white border-b border-[#dde3ea] px-6 py-3 flex items-center gap-3">
       <div className="w-8 h-8 rounded-lg bg-[#2563eb] flex items-center justify-center">
