@@ -7,5 +7,8 @@
 
   Run `npm i` to install the dependencies.
 
+  Run 'docker compose up -d --build backend' to build'
+
   Run `npm run dev` to start the development server.
-  
+
+  Project will be on http://localhost:5173/
